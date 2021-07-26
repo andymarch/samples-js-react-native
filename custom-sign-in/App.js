@@ -25,9 +25,13 @@ import Spinner from 'react-native-loading-spinner-overlay';
 const Stack = createStackNavigator();
 
 export default class App extends React.Component {
+  XMLHttpRequest = GLOBAL.originalXMLHttpRequest ?
+  GLOBAL.originalXMLHttpRequest :
+  GLOBAL.XMLHttpRequest;
 
   constructor() {
     super();
+
 
     this.state = {
       progress: true,
@@ -39,7 +43,6 @@ export default class App extends React.Component {
 
   async checkAuthentication() {
     const result = await isAuthenticated();
-
     this.setState({
       authenticated: result.authenticated, 
       progress: false
@@ -56,7 +59,6 @@ export default class App extends React.Component {
       requireHardwareBackedKeyStore:
         configFile.oidc.requireHardwareBackedKeyStore,
     });
-    
 
     await this.checkAuthentication();
   }

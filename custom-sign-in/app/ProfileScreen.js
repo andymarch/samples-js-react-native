@@ -19,9 +19,14 @@ import {
   StatusBar,
   Button
 } from 'react-native';
-import { getAccessToken, getUser, clearTokens } from '@okta/okta-react-native';
+import { getAccessToken, getUser, clearTokens, revokeAccessToken, introspectAccessToken, refreshTokens, revokeRefreshToken, introspectRefreshToken } from '@okta/okta-react-native';
 import Spinner from 'react-native-loading-spinner-overlay';
 import Error from './components/Error';
+import * as Sentry from "@sentry/react-native";
+
+Sentry.init({
+  dsn: "https://7827431b90674089abbbb8bba5fca65e@o876653.ingest.sentry.io/5826359",
+});
 
 export default class ProfileScreen extends React.Component {
   constructor(props) {
@@ -31,7 +36,8 @@ export default class ProfileScreen extends React.Component {
       accessToken: null,
       user: null,
       progress: true,
-      error: ''
+      error: '',
+      message: ''
     };
 
     this.logout = this.logout.bind(this);
@@ -50,7 +56,8 @@ export default class ProfileScreen extends React.Component {
         this.setState({ progress: false, user });
       })
       .catch(e => {
-        this.setState({ progress: false, error: e.message });
+        console.log(JSON.stringify(e))
+        this.setState({ progress: false, error: e.message, message: JSON.stringify(e) });
       });
   }
 
@@ -64,8 +71,70 @@ export default class ProfileScreen extends React.Component {
         });
       })
       .catch(e => {
-        this.setState({ progress: false, error: e.message });
+        Sentry.captureException(err);
+        this.addHistory(JSON.stringify(e))
+        this.setState({ progress: false, error: e.message, message: JSON.stringify(e) });
       });
+  }
+
+  introspectAccessToken = () => {
+    introspectAccessToken()
+      .then(response => {
+        this.setState({ progress: false, message: "instropection passed" });
+      })
+      .catch(e => {
+        Sentry.captureException(err);
+        console.log(e)
+        this.setState({ progress: false, error: e.message, message: JSON.stringify(e) });
+      });
+  }
+
+  revokeAccessToken= () => {
+    revokeAccessToken()
+      .then(result =>{
+        this.setState({ progress: false, message: "access token revoked" });
+      })
+      .catch(e => {
+        Sentry.captureException(err);
+        console.log(e)
+        this.setState({ progress: false, error: e.message, message: JSON.stringify(e) });
+      });
+  }
+
+  refreshTokens= () => {
+    console.log("refreshing tokens")
+    refreshTokens()
+      .then(tokens => {
+       console.log(tokens)
+       this.setState({ progress: false, message: "tokens refreshed", accessToken: tokens.access_token });
+      })
+      .catch(e => {
+        Sentry.captureException(err);
+        console.log(e)
+        this.setState({ progress: false, error: e.message,message: JSON.stringify(e) });
+      });
+  }
+
+  introspectRefreshToken = () => {
+    introspectRefreshToken()
+      .then(response => {
+        console.log(response)
+        this.setState({ progress: false, message: "refresh instropection passed" });
+      })
+      .catch(e => {
+        Sentry.captureException(err);
+        console.log(e)
+        this.setState({ progress: false, error: e.message, message: JSON.stringify(e) });
+      });
+  }
+
+  revokeRefreshTokens= () => {
+    revokeRefreshToken()
+      .then(response => {
+        Sentry.captureException(err);
+        console.log(response)
+        this.setState({ progress: false, message: "refresh token revoked" });
+      })
   }
 
   logout() {
@@ -74,12 +143,13 @@ export default class ProfileScreen extends React.Component {
         this.props.navigation.navigate('Login');
       })
       .catch(e => {
+        Sentry.captureException(err);
         this.setState({ error: e.message });
       });
   }
 
   render() {
-    const { user, accessToken, error, progress } = this.state;
+    const { user, accessToken, error, progress, message} = this.state;
 
     return (
       <>
@@ -91,6 +161,7 @@ export default class ProfileScreen extends React.Component {
             textStyle={styles.spinnerTextStyle}
           />
           <Error error={error} />
+          <Text>{message}</Text>
           { user && (
             <View style={{ paddingLeft: 20, paddingTop: 20 }}>
               <Text style={styles.titleHello}>Hello {user.name}</Text>
@@ -109,13 +180,20 @@ export default class ProfileScreen extends React.Component {
             </View>
           )}
           <View style={{ flexDirection: 'column', marginTop: 20, paddingLeft: 20, width: 300 }}>
-            <Button testID="accessButton" style={{ marginTop:40 }} title="Get access token" onPress={this.getAccessToken} />
+            <Button testID="accessButton" style={{ marginTop:40 }} title="Show access token" onPress={this.getAccessToken} />
             { accessToken &&
               <View style={styles.tokenContainer}>
                 <Text style={styles.tokenTitle}>Access Token:</Text>
                 <Text style={{ marginTop: 20 }} numberOfLines={5}>{accessToken}</Text>
+                <Button testID="introspectAT" style={{ marginTop:40 }} title="Introspect token" onPress={this.introspectAccessToken} />
+                <Button testID="revokeAT" style={{ marginTop:40 }} title="Revoke token" onPress={this.revokeAccessToken} />
               </View>
             }
+          </View>
+          <View style={{ flexDirection: 'column', marginTop: 20, paddingLeft: 20, width: 300 }}>
+            <Button testID="refreshTokens" style={{ marginTop:40 }} title="Refresh tokens" onPress={this.refreshTokens} />
+            <Button testID="introspectRefreshTokens" style={{ marginTop:40 }} title="Introspect Refresh tokens" onPress={this.introspectRefreshToken} />
+            <Button testID="revokerefreshTokens" style={{ marginTop:40 }} title="Revoke Refresh tokens" onPress={this.revokeRefreshTokens} />
           </View>
         </SafeAreaView>
       </>
